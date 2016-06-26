@@ -365,10 +365,9 @@ describe('cli', function() {
         mversion.update = function (options, cb) {
           assert.ok(options);
           var version = mversion.updateJSON({version: "1.2.3"},options.version);
-          if(version == false || version.version === undefined){
+          if(version == false || version === undefined){
               assert.fail("unknown release type");
           }
-          version = version.version;
           switch(longName){
             case "major":
               assert.equal(version, "2.0.0");

@@ -5,6 +5,11 @@ var semver = require('semver'),
     fUtil = require('./lib/files'),
     git = require('./lib/git');
 
+const assemblyInfoVerRegex = /(?:\n\[assembly\: AssemblyVersion\(")([^"]+)(?:"\)\])/,
+      assemblyInfoVerInverseRegex = /(\n\[assembly\: AssemblyVersion\(")(?:[^"]+)("\)\])/,
+      assemblyFileInfoVerRegex = /(?:\n\[assembly\: AssemblyFileVersion\(")([^"]+)(?:"\)\])/,
+      assemblyFileInfoVerInverseRegex = /(\n\[assembly\: AssemblyFileVersion\(")(?:[^"]+)("\)\])/;
+
 exports.get = function (callback) {
   var result = fUtil.loadFiles();
   var ret = {};
@@ -13,8 +18,27 @@ exports.get = function (callback) {
   return result
     .on('data', function (file) {
       try {
-        var contents = JSON.parse(file.contents.toString());
-        ret[path.basename(file.path)] = contents.version;
+        switch (path.extname(file.path)) {
+          case '.json': {
+            var contents = JSON.parse(file.contents.toString());
+            ret[path.basename(file.path)] = contents.version;
+          }
+          break;
+
+          case '.cs': {
+            var contents = file.contents.toString();
+            
+            if (!assemblyInfoVerRegex.test(contents)) {
+              throw new Error('This is possibly not an AssemblyInfo.cs file.');
+            }
+
+            ret[path.basename(file.path)] = contents.match(assemblyInfoVerRegex)[1];
+          }
+          break;
+
+          default:
+            throw new Error(`Extension '${file.extname}' isn't supported.`);
+        }
       } catch (e) {
         errors.push(file.relative + ": " + e.message);
       }
@@ -61,8 +85,30 @@ var updateJSON = exports.updateJSON = function (obj, ver) {
   }
 
   obj.version = validVer;
-  return obj;
+  return validVer;
 };
+
+var getNewVer_AssemblyInfoCs = exports.getNewVer_AssemblyInfoCs = function (contents, ver) {
+  ver = ver.toString().toLowerCase();
+
+  // check for aliases
+  if(ver in versionAliases){
+    ver = versionAliases[ver];
+  }
+
+  var validVer = semver.valid(ver);
+  var currentVer = contents.match(assemblyInfoVerRegex)[1];
+
+  if (validVer === null) {
+    validVer = semver.inc(currentVer, ver);
+  }
+
+  if (validVer === null) {
+    return false;
+  }
+
+  return validVer;
+}
 
 exports.update = function (options, callback) {
   if (typeof options === "function") {
@@ -106,7 +152,7 @@ exports.update = function (options, callback) {
         errors = [],
         fileStream = fUtil.loadFiles(),
         versionList = {},
-        updated = null,
+        newVer = null,
         hasSet = false;
 
     var stored = fileStream.pipe(through.obj(function(file, e, next) {
@@ -115,30 +161,51 @@ exports.update = function (options, callback) {
         next();
         return;
       }
-      var json = file.contents.toString(),
-          contents = null;
+      var contents = file.contents.toString(),
+          newVersionGetter, newFileContentsGetter;
 
-      try {
-        contents = JSON.parse(json);
-      } catch (e) {
-        errors.push(new Error(file.relative + ': ' + e.message));
-        next();
-        return;
+      switch (path.extname(file.path)) {
+        case '.json': {
+          try {
+            var json = JSON.parse(contents);
+            newVersionGetter = () => updateJSON(json, ver);
+            newFileContentsGetter = () => new Buffer(JSON.stringify(json, null, fUtil.space(contents)) + fUtil.getLastChar(contents));
+          } catch (e) {
+            errors.push(new Error(file.relative + ': ' + e.message));
+            next();
+            return;
+          }
+        }
+        break;
+
+        case '.cs': {
+          newVersionGetter = () => getNewVer_AssemblyInfoCs(contents, ver);
+          newFileContentsGetter = () => new Buffer(contents
+            .replace(assemblyInfoVerInverseRegex, function (match, part1, part2) { return `${part1}${newVer}${part2}`; })
+            .replace(assemblyFileInfoVerInverseRegex, function (match, part1, part2) { return `${part1}${newVer}${part2}`; }));
+        }
+        break;
+
+        default: {
+          errors.push(new Error(file.relative + ': ' + `Extension '${file.extname}' isn't supported.`));
+          next();
+          return;
+        }
+        break;
       }
 
       if (!hasSet) {
         hasSet = true;
-        updated = updateJSON(contents, ver);
+        newVer = newVersionGetter();
 
-        if (!updated) {
+        if (newVer === false) {
           this.emit('error', new Error('Version bump failed, ' + ver + ' is not valid version.'))
           return void 0;
         }
       }
 
-      contents.version = updated.version;
-      file.contents = new Buffer(JSON.stringify(contents, null, fUtil.space(json)) + fUtil.getLastChar(json));
-      versionList[path.basename(file.path)] = updated.version;
+      file.contents = newFileContentsGetter();
+      versionList[path.basename(file.path)] = newVer;
 
       this.push(file);
       next();
@@ -146,7 +213,9 @@ exports.update = function (options, callback) {
     .on('error', function (err) {
       callback(err);
     })
-    .pipe(fs.dest('./'));
+    .pipe(fs.dest(function (file) {
+      return path.dirname(file.path);
+    }));
 
     stored.on('data', function (file) {
       files.push(file.path);
@@ -160,10 +229,10 @@ exports.update = function (options, callback) {
         }).join('\n');
       }
 
-      updated = updated || { version: 'N/A' };
+      newVer = newVer || 'N/A';
 
       var ret = {
-        newVersion: updated.version,
+        newVersion: newVer,
         versions: versionList,
         message: files.map(function (file) {
           return 'Updated ' + path.basename(file);
@@ -188,8 +257,8 @@ exports.update = function (options, callback) {
       });
 
       function doCommit () {
-        var tagName = options.tagName.replace('%s', updated.version).replace('"', '').replace("'", '');
-        git.commit(files, commitMessage, updated.version, tagName, function (err) {
+        var tagName = options.tagName.replace('%s', newVer).replace('"', '').replace("'", '');
+        git.commit(files, commitMessage, newVer, tagName, function (err) {
           if (err) {
             callback(err, null);
             return void 0;
