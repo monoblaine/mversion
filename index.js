@@ -152,8 +152,7 @@ exports.update = function (options, callback) {
         errors = [],
         fileStream = fUtil.loadFiles(),
         versionList = {},
-        newVer = null,
-        hasSet = false;
+        newVer = null;
 
     var stored = fileStream.pipe(through.obj(function(file, e, next) {
       if (file == null || file.isNull()) {
@@ -194,14 +193,11 @@ exports.update = function (options, callback) {
         break;
       }
 
-      if (!hasSet) {
-        hasSet = true;
-        newVer = newVersionGetter();
+      newVer = newVersionGetter();
 
-        if (newVer === false) {
-          this.emit('error', new Error('Version bump failed, ' + ver + ' is not valid version.'))
-          return void 0;
-        }
+      if (newVer === false) {
+        this.emit('error', new Error('Version bump failed, ' + ver + ' is not valid version.'))
+        return void 0;
       }
 
       file.contents = newFileContentsGetter();
