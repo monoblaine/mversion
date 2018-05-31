@@ -7,7 +7,8 @@ var semver = require('semver'),
 
 const assemblyInfoVerRegex = /(?:\n\[assembly\: AssemblyVersion\(")([^"]+)(?:"\)\])/,
       assemblyInfoVerInverseRegex = /(\n\[assembly\: AssemblyVersion\(")(?:[^"]+)("\)\])/,
-      assemblyFileInfoVerInverseRegex = /(\n\[assembly\: AssemblyFileVersion\(")(?:[^"]+)("\)\])/;
+      assemblyFileInfoVerInverseRegex = /(\n\[assembly\: AssemblyFileVersion\(")(?:[^"]+)("\)\])/,
+      assemblyInformationalVerInverseRegex = /(\n\[assembly\: AssemblyInformationalVersion\(")(?:[^"]+)("\)\])/;
 
 exports.get = function (callback) {
   var result = fUtil.loadFiles();
@@ -180,7 +181,8 @@ exports.update = function (options, callback) {
           newVersionGetter = () => getNewVer_AssemblyInfoCs(contents, ver);
           newFileContentsGetter = () => new Buffer(contents
             .replace(assemblyInfoVerInverseRegex, function (match, part1, part2) { return `${part1}${newVer}${part2}`; })
-            .replace(assemblyFileInfoVerInverseRegex, function (match, part1, part2) { return `${part1}${newVer}${part2}`; }));
+            .replace(assemblyFileInfoVerInverseRegex, function (match, part1, part2) { return `${part1}${newVer}${part2}`; })
+            .replace(assemblyInformationalVerInverseRegex, function (match, part1, part2) { return `${part1}${newVer}${part2}`; }));
         }
         break;
 
