@@ -7,7 +7,6 @@ var semver = require('semver'),
 
 const assemblyInfoVerRegex = /(?:\n\[assembly\: AssemblyVersion\(")([^"]+)(?:"\)\])/,
       assemblyInfoVerInverseRegex = /(\n\[assembly\: AssemblyVersion\(")(?:[^"]+)("\)\])/,
-      assemblyFileInfoVerRegex = /(?:\n\[assembly\: AssemblyFileVersion\(")([^"]+)(?:"\)\])/,
       assemblyFileInfoVerInverseRegex = /(\n\[assembly\: AssemblyFileVersion\(")(?:[^"]+)("\)\])/;
 
 exports.get = function (callback) {
