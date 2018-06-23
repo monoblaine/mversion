@@ -60,7 +60,7 @@ describe('mversion(package.json)', function () {
         base: __dirname,
         cwd: __dirname,
         path: expectedPath,
-        contents: new Buffer('{ "version": "1.1.1" "foo": "bar }')
+        contents: Buffer.from('{ "version": "1.1.1" "foo": "bar }')
       });
 
       fUtil.loadFiles = function () {
@@ -95,7 +95,7 @@ describe('mversion(package.json)', function () {
         base: __dirname,
         cwd: __dirname,
         path: expectedPath,
-        contents: new Buffer('{ "version": "1.1.1" "foo": "bar }')
+        contents: Buffer.from('{ "version": "1.1.1" "foo": "bar }')
       });
 
       fUtil.loadFiles = function () {

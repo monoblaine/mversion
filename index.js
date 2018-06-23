@@ -168,7 +168,7 @@ exports.update = function (options, callback) {
           try {
             var json = JSON.parse(contents);
             newVersionGetter = () => updateJSON(json, ver);
-            newFileContentsGetter = () => new Buffer(JSON.stringify(json, null, fUtil.space(contents)) + fUtil.getLastChar(contents));
+            newFileContentsGetter = () => Buffer.from(JSON.stringify(json, null, fUtil.space(contents)) + fUtil.getLastChar(contents));
           } catch (e) {
             errors.push(new Error(file.relative + ': ' + e.message));
             next();
@@ -179,7 +179,7 @@ exports.update = function (options, callback) {
 
         case '.cs': {
           newVersionGetter = () => getNewVer_AssemblyInfoCs(contents, ver);
-          newFileContentsGetter = () => new Buffer(contents
+          newFileContentsGetter = () => Buffer.from(contents
             .replace(assemblyInfoVerInverseRegex, function (match, part1, part2) { return `${part1}${newVer}${part2}`; })
             .replace(assemblyFileInfoVerInverseRegex, function (match, part1, part2) { return `${part1}${newVer}${part2}`; })
             .replace(assemblyInformationalVerInverseRegex, function (match, part1, part2) { return `${part1}${newVer}${part2}`; }));

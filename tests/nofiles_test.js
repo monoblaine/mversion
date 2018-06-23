@@ -55,14 +55,14 @@ describe('mversion(nofile)', function () {
       if (v1) {
         var c1 = JSON.parse(expectedPackages.contents.toString());
         c1.version = v1;
-        expectedPackages.contents = new Buffer(fn(c1));
+        expectedPackages.contents = Buffer.from(fn(c1));
         stream.write(expectedPackages);
       }
 
       if (v2) {
         var c2 = JSON.parse(expectedPackages.contents.toString());
         c2.version = v2;
-        expectedComponent.contents = new Buffer(fn(c2));
+        expectedComponent.contents = Buffer.from(fn(c2));
         stream.write(expectedComponent);
       }
 
